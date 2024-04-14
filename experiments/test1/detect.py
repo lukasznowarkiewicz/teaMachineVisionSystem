@@ -23,12 +23,18 @@ if video_files:
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
+    # Definiowanie obszaru detekcji
+    detection_width = 150
+    detection_height = 250
+    x_start = (frame_width // 2) - (detection_width // 2)
+    y_start = frame_height - detection_height
+
     # Utworzenie nazwy wyjściowej pliku
-    output_file_name = f"{os.path.splitext(video_files[0])[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.avi"
+    output_file_name = f"{os.path.splitext(video_files[0])[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     output_path = os.path.join(output_folder, output_file_name)
 
     # Utworzenie obiektu do zapisu wideo
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc('M','J','P','G'), fps, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
 
     # Czytanie pierwszej klatki
     ret, prev_frame = cap.read()
@@ -45,8 +51,12 @@ if video_files:
             # Konwersja klatki do skali szarości
             current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # Oblicz różnicę między aktualną a poprzednią klatką
-            frame_diff = cv2.absdiff(current_frame_gray, prev_frame_gray)
+            # Ograniczenie obszaru detekcji
+            detection_area = current_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
+            prev_detection_area = prev_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
+
+            # Oblicz różnicę między aktualną a poprzednią klatką w obszarze detekcji
+            frame_diff = cv2.absdiff(detection_area, prev_detection_area)
 
             # Zastosuj progowanie, aby uzyskać wyraźniejsze wyniki
             _, thresh = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
@@ -57,8 +67,11 @@ if video_files:
             # Rysowanie konturów na oryginalnym obrazie
             for contour in contours:
                 if cv2.contourArea(contour) > 100:  # minimalny rozmiar obszaru
-                    x, y, w, h = cv2.boundingRe ct(contour)
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    x, y, w, h = cv2.boundingRect(contour)
+                    cv2.rectangle(frame, (x_start + x, y_start + y), (x_start + x + w, y_start + y + h), (0, 255, 0), 2)
+
+            # Obrysowanie czerwonym prostokątem całego obszaru detekcji
+            cv2.rectangle(frame, (x_start, y_start), (x_start + detection_width, y_start + detection_height), (0, 0, 255), 2)
 
             # Zapisz ramkę w pliku wyjściowym
             out.write(frame)
@@ -74,4 +87,3 @@ if video_files:
     cv2.destroyAllWindows()
 else:
     print("Nie znaleziono plików wideo w folderze.")
-
