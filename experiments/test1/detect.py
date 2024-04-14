@@ -38,6 +38,7 @@ if video_files:
 
     # Czytanie pierwszej klatki
     ret, prev_frame = cap.read()
+    cumulative_count = 0  # Skumulowana liczba wykrytych różnic
 
     if ret:
         prev_frame_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
@@ -69,9 +70,13 @@ if video_files:
                 if cv2.contourArea(contour) > 100:  # minimalny rozmiar obszaru
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(frame, (x_start + x, y_start + y), (x_start + x + w, y_start + y + h), (0, 255, 0), 2)
+                    cumulative_count += 1  # Aktualizacja licznika
 
             # Obrysowanie czerwonym prostokątem całego obszaru detekcji
             cv2.rectangle(frame, (x_start, y_start), (x_start + detection_width, y_start + detection_height), (0, 0, 255), 2)
+
+            # Wyświetlanie skumulowanej liczby wykrytych różnic
+            cv2.putText(frame, f"Detected: {cumulative_count}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
             # Zapisz ramkę w pliku wyjściowym
             out.write(frame)
