@@ -13,15 +13,16 @@ if not os.path.exists(output_folder):
 # Wyszukiwanie plików wideo w folderze
 video_files = [f for f in os.listdir(input_folder) if f.endswith('.mp4')]
 
-# Wczytanie pierwszego filmu z listy
-if video_files:
-    video_path = os.path.join(input_folder, video_files[0])
+# Przetwarzanie każdego pliku wideo w folderze
+for video_file in video_files:
+    video_path = os.path.join(input_folder, video_file)
     cap = cv2.VideoCapture(video_path)
 
     # Pobranie rozmiaru ramki i fps z obiektu kamery
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
+    frame_time = 1 / fps  # czas trwania jednej klatki w sekundach
 
     # Definiowanie obszaru detekcji
     detection_width = 150
@@ -30,16 +31,20 @@ if video_files:
     y_start = frame_height - detection_height
 
     # Utworzenie nazwy wyjściowej pliku
-    output_file_name = f"{os.path.splitext(video_files[0])[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-    output_path = os.path.join(output_folder, output_file_name)
+    output_base_name = os.path.splitext(video_file)[0] + "_" + datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_video_file = f"{output_base_name}.mp4"
+    output_csv_file = f"{output_base_name}.txt"
+    output_video_path = os.path.join(output_folder, output_video_file)
+    output_csv_path = os.path.join(output_folder, output_csv_file)
 
     # Utworzenie obiektu do zapisu wideo
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+
+    cumulative_count = 0  # Skumulowana liczba wykrytych różnic
+    active_seconds = 0.0  # Licznik aktywnych sekund
 
     # Czytanie pierwszej klatki
     ret, prev_frame = cap.read()
-    cumulative_count = 0  # Skumulowana liczba wykrytych różnic
-
     if ret:
         prev_frame_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
@@ -49,46 +54,38 @@ if video_files:
             if not ret:
                 break
 
-            # Konwersja klatki do skali szarości
             current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            # Ograniczenie obszaru detekcji
             detection_area = current_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
             prev_detection_area = prev_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
-
-            # Oblicz różnicę między aktualną a poprzednią klatką w obszarze detekcji
             frame_diff = cv2.absdiff(detection_area, prev_detection_area)
-
-            # Zastosuj progowanie, aby uzyskać wyraźniejsze wyniki
             _, thresh = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
-
-            # Znajdowanie konturów na obrazie progowanym
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            active_in_frame = False
 
-            # Rysowanie konturów na oryginalnym obrazie
             for contour in contours:
-                if cv2.contourArea(contour) > 100:  # minimalny rozmiar obszaru
+                if cv2.contourArea(contour) > 100:
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(frame, (x_start + x, y_start + y), (x_start + x + w, y_start + y + h), (0, 255, 0), 2)
-                    cumulative_count += 1  # Aktualizacja licznika
+                    cumulative_count += 1
+                    active_in_frame = True
 
-            # Obrysowanie czerwonym prostokątem całego obszaru detekcji
+            if active_in_frame:
+                active_seconds += frame_time
+
             cv2.rectangle(frame, (x_start, y_start), (x_start + detection_width, y_start + detection_height), (0, 0, 255), 2)
-
-            # Wyświetlanie skumulowanej liczby wykrytych różnic
             cv2.putText(frame, f"Detected: {cumulative_count}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
-            # Zapisz ramkę w pliku wyjściowym
+            cv2.putText(frame, f"Seconds: {active_seconds:.2f}", (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             out.write(frame)
-
-            # Przygotuj się na kolejną iterację
             prev_frame_gray = current_frame_gray
-    else:
-        print("Nie udało się wczytać wideo.")
 
-    # Zwolnienie zasobów
-    cap.release()
-    out.release()
-    cv2.destroyAllWindows()
-else:
-    print("Nie znaleziono plików wideo w folderze.")
+        # Zapisywanie danych do pliku CSV
+        with open(output_csv_path, 'w') as f:
+            f.write(f"Detected Drops,Active Time\n")
+            f.write(f"{cumulative_count},{active_seconds:.2f}\n")
+
+        # Zwolnienie zasobów
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+    else:
+        print(f"Nie udało się wczytać wideo {video_file}.")
