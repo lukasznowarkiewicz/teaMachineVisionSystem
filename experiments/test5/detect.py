@@ -58,7 +58,7 @@ for video_file in video_files:
             detection_area = current_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
             prev_detection_area = prev_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
             frame_diff = cv2.absdiff(detection_area, prev_detection_area)
-            _, thresh = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(frame_diff, 10, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             active_in_frame = False
 
