@@ -36,29 +36,28 @@ for video_file in video_files:
 
     ret, prev_frame = cap.read()
     if ret:
-        prev_frame_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
-            current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            detection_area = current_frame_gray[y_start:y_start+detection_height, x_start:x_start+detection_width]
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            equalized_frame = cv2.equalizeHist(gray_frame)
 
-            adaptive_thresh = cv2.adaptiveThreshold(detection_area, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            
-            # Filtracja morfologiczna
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-            morphed = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_OPEN, kernel)
+            sobelx = cv2.Sobel(equalized_frame, cv2.CV_64F, 1, 0, ksize=5)
 
-            contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            _, thresholded = cv2.threshold(sobelx, 50, 255, cv2.THRESH_BINARY)
+
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            dilated = cv2.dilate(thresholded, kernel, iterations=2)
+
+            contours, _ = cv2.findContours(dilated.astype('uint8'), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             active_in_frame = False
 
             for contour in contours:
                 if cv2.contourArea(contour) > 50:
                     x, y, w, h = cv2.boundingRect(contour)
-                    cv2.rectangle(frame, (x_start + x, y_start + y), (x_start + x + w, y_start + y + h), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                     cumulative_count += 1
                     active_in_frame = True
 
