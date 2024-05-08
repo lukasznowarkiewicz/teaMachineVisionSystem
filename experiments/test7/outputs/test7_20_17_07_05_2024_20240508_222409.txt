@@ -1,0 +1,2 @@
+Detected Drops,Active Time
+6405,46.25
