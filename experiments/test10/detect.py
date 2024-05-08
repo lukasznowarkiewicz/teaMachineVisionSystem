@@ -27,10 +27,13 @@ for video_file in video_files:
     # Define the output video filename with a timestamp
     output_base_name = os.path.splitext(video_file)[0] + "_" + datetime.now().strftime('%Y%m%d_%H%M%S')
     output_video_file = f"{output_base_name}.mp4"
+    output_csv_file = f"{output_base_name}.csv"
     output_video_path = os.path.join(output_folder, output_video_file)
+    output_csv_path = os.path.join(output_folder, output_csv_file)
 
-    # Create a video writer object to save the output video
+    # Create a video writer object and CSV file
     out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+    avg_colors = []  # List to store average colors for CSV
 
     # Read the first frame to start processing
     ret, frame = cap.read()
@@ -38,19 +41,25 @@ for video_file in video_files:
         # Calculate the area position 100 pixels to the right and 100 pixels up from the center
         center_x = frame_width // 2
         center_y = frame_height // 2
-        x_start = center_x - 5 + 100  # Adjust to get the middle of the 10x10 area
-        y_start = center_y - 5 - 100  # Adjust to get the middle of the 10x10 area
+        x_start = center_x - 25 + 100  # Adjust to get the middle of the 50x50 area
+        y_start = center_y - 25 - 100
 
-        # Extract the 10x10 pixel area and calculate its average color
-        area = frame[y_start:y_start+10, x_start:x_start+10]
+        # Extract the 50x50 pixel area and calculate its average color
+        area = frame[y_start:y_start+50, x_start:x_start+50]
         average_color = np.mean(area, axis=(0, 1))
 
-        # Overlay a rectangle around the area to visualize it
-        cv2.rectangle(frame, (x_start, y_start), (x_start + 10, y_start + 10), (0, 255, 0), 2)
+        # Accumulate the average color for CSV
+        avg_colors.append(average_color)
 
-        # Put the average color value as text on the frame
-        color_text = f"Avg Color: {int(average_color[0])}, {int(average_color[1])}, {int(average_color[2])}"
-        cv2.putText(frame, color_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        # Overlay a rectangle around the area to visualize it
+        cv2.rectangle(frame, (x_start, y_start), (x_start + 50, y_start + 50), (0, 255, 0), 2)
+
+        # Display current and overall average color values on the frame
+        color_text = f"Current Avg Color: {int(average_color[0])}, {int(average_color[1])}, {int(average_color[2])}"
+        overall_avg = np.mean(avg_colors, axis=0)
+        overall_text = f"Overall Avg Color: {int(overall_avg[0])}, {int(overall_avg[1])}, {int(overall_avg[2])}"
+        cv2.putText(frame, color_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(frame, overall_text, (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Write the modified frame to the output file
         out.write(frame)
@@ -58,9 +67,15 @@ for video_file in video_files:
         # Read the next frame
         ret, frame = cap.read()
 
+    # Write the final average color to a CSV file
+    final_avg_color = np.mean(avg_colors, axis=0)
+    with open(output_csv_path, 'w') as f:
+        f.write("Final Average Color (R,G,B)\n")
+        f.write(f"{int(final_avg_color[0])},{int(final_avg_color[1])},{int(final_avg_color[2])}\n")
+
     # Release resources after processing each video
     cap.release()
     out.release()
 
 cv2.destroyAllWindows()
-print("Processing complete. Output videos are saved in the 'outputs' folder.")
+print("Processing complete. Output videos and CSV files are saved in the 'outputs' folder.")
