@@ -1,0 +1,2 @@
+Final Average Color (R,G,B)
+22,38,74

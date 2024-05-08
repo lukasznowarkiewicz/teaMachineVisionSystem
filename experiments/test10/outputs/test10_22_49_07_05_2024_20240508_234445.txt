@@ -1,0 +1,2 @@
+Final Average Color (R,G,B)
+0,0,23
