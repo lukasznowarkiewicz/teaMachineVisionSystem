@@ -1,1 +1,0 @@
-Frame, X, Y, Width(px), Height(px), Width(cm), Height(cm)
