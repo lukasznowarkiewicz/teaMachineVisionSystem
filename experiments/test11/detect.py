@@ -51,7 +51,7 @@ for video_file in video_files:
 
     # Write bounding box dimensions to TXT
     with open(output_txt_path, 'w') as f:
-        f.write("Frame, X, Y, Width(px), Height(px), Width(cm), Height(cm)\n")
+        f.write("Frame, X, Y, Width(px), Height(px), Width(cm), Height(cm), Effective Width(cm)\n")
 
     frame_count = 0
     while True:
@@ -93,28 +93,25 @@ for video_file in video_files:
                 x, y, w, h = boxes[i]
                 label = str(classes[class_ids[i]])
                 if label == "cup":
-                    # Crop the detected cup area
-                    crop_img = frame[y:y+h, x:x+w]
-                    gray = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-                    edges = cv2.Canny(gray, 50, 150)
-                    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    cup_area = w * h
+                    # Draw the full bounding box in green
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, f'{label} {int(confidences[i]*100)}%', (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-                    # Assume the largest contour is the main part of the cup
-                    main_contour = max(contours, key=cv2.contourArea)
-                    x_m, y_m, w_m, h_m = cv2.boundingRect(main_contour)
-                    
-                    # Calculate dimensions in cm
-                    width_cm = w_m / pixels_per_cm_x
-                    height_cm = h_m / pixels_per_cm_y
-                    
-                    # Draw the bounding box and dimensions on the main contour
-                    cv2.rectangle(frame, (x + x_m, y + y_m), (x + x_m + w_m, y + y_m + h_m), (0, 0, 255), 2)
-                    cv2.putText(frame, f'{label} {int(confidences[i]*100)}% ({width_cm:.2f}cm x {height_cm:.2f}cm)', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                    
+                    # Assume the handle is detected (mockup position and dimensions)
+                    # Let's assume the handle is on the left side
+                    handle_width = int(w * 0.2)  # Assume handle takes about 20% of the cup width
+                    handle_x_adjustment = int(handle_width * 0.2)  # 20% more width to the handle detection area for cushion
+                    effective_width = w - handle_width - handle_x_adjustment  # Effective width without the handle
+
+                    # Draw the effective area without handle in black
+                    cv2.rectangle(frame, (x + handle_width + handle_x_adjustment, y), (x + w, y + h), (0, 0, 0), 2)
+                    effective_width_cm = effective_width / pixels_per_cm_x
+                    height_cm = h / pixels_per_cm_y
+                    cv2.putText(frame, f'{effective_width_cm:.2f}cm x {height_cm:.2f}cm', (x + handle_width + handle_x_adjustment, y + h + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+
                     # Append to text file
                     with open(output_txt_path, 'a') as f:
-                        f.write(f"{frame_count}, {x+x_m}, {y+y_m}, {w_m}, {h_m}, {width_cm:.2f}, {height_cm:.2f}\n")
+                        f.write(f"{frame_count}, {x}, {y}, {w}, {h}, {w/pixels_per_cm_x:.2f}, {h/pixels_per_cm_y:.2f}, {effective_width_cm:.2f}\n")
 
         out.write(frame)
         frame_count += 1
