@@ -22,6 +22,10 @@ output_folder = './outputs'
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
+# Constants to convert pixels to cm (assume these values as examples)
+pixels_per_cm_x = 45  # Number of pixels in 1 cm on the x-axis
+pixels_per_cm_y = 45  # Number of pixels in 1 cm on the y-axis
+
 # Find all mp4 files in the input folder
 video_files = [f for f in os.listdir(input_folder) if f.endswith('.mp4')]
 
@@ -47,7 +51,7 @@ for video_file in video_files:
 
     # Write bounding box dimensions to TXT
     with open(output_txt_path, 'w') as f:
-        f.write("Frame, X, Y, Width, Height\n")
+        f.write("Frame, X, Y, Width(px), Height(px), Width(cm), Height(cm)\n")
 
     frame_count = 0
     while True:
@@ -89,10 +93,12 @@ for video_file in video_files:
                 x, y, w, h = boxes[i]
                 label = str(classes[class_ids[i]])
                 if label == "cup":
+                    width_cm = w / pixels_per_cm_x
+                    height_cm = h / pixels_per_cm_y
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                    cv2.putText(frame, f'{label} {int(confidences[i]*100)}%', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    cv2.putText(frame, f'{label} {int(confidences[i]*100)}% ({width_cm:.2f}cm x {height_cm:.2f}cm)', (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                     with open(output_txt_path, 'a') as f:
-                        f.write(f"{frame_count}, {x}, {y}, {w}, {h}\n")
+                        f.write(f"{frame_count}, {x}, {y}, {w}, {h}, {width_cm:.2f}, {height_cm:.2f}\n")
 
         out.write(frame)
         frame_count += 1
