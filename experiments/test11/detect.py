@@ -96,8 +96,8 @@ for video_file in video_files:
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                     cv2.putText(frame, f'{label} {int(confidences[i]*100)}%', (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-                    # Assuming the handle is on the left and occupies 20% of the width
-                    handle_width = int(w * 0.2)
+                    # Assuming the handle is on the left and occupies 40% of the width
+                    handle_width = int(w * 0.3)
                     effective_width = w - handle_width
 
                     # Draw the effective area without handle in black
@@ -121,7 +121,7 @@ for video_file in video_files:
     if dimensions:
         avg_width = sum(d[0] for d in dimensions) / len(dimensions)
         avg_height = sum(d[1] for d in dimensions) / len(dimensions)
-        avg_volume = sum(d[2] for d in dimensions) / len(dimensions)
+        avg_volume = sum(d[2] for d in dimensions) / len(dimensions)*0.9 # 0.9 because of wall thickness 
         with open(output_txt_path, 'w') as f:
             f.write(f'Average Width: {avg_width:.2f} cm\n')
             f.write(f'Average Height: {avg_height:.2f} cm\n')
