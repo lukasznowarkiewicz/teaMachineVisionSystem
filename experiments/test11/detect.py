@@ -46,14 +46,12 @@ for video_file in video_files:
     output_video_path = os.path.join(output_folder, output_video_file)
     output_txt_path = os.path.join(output_folder, output_txt_file)
 
-    # Create a video writer object and TXT file
+    # Create a video writer object
     out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
 
-    # Write bounding box dimensions to TXT
-    with open(output_txt_path, 'w') as f:
-        f.write("Frame, X, Y, Width(px), Height(px), Width(cm), Height(cm), Effective Width(cm)\n")
+    # Initialize list to store dimensions and volumes
+    dimensions = []
 
-    frame_count = 0
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -87,9 +85,10 @@ for video_file in video_files:
                     confidences.append(float(confidence))
                     class_ids.append(class_id)
 
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+            indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
         if len(indexes) > 0:
-            for i in indexes.flatten():
+            indexes = indexes.flatten()  # Ensure indexes are flattened properly
+            for i in indexes:
                 x, y, w, h = boxes[i]
                 label = str(classes[class_ids[i]])
                 if label == "cup":
@@ -97,27 +96,36 @@ for video_file in video_files:
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                     cv2.putText(frame, f'{label} {int(confidences[i]*100)}%', (x, y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-                    # Assume the handle is detected (mockup position and dimensions)
-                    # Let's assume the handle is on the left side
-                    handle_width = int(w * 0.2)  # Assume handle takes about 20% of the cup width
-                    handle_x_adjustment = int(handle_width * 0.2)  # 20% more width to the handle detection area for cushion
-                    effective_width = w - handle_width - handle_x_adjustment  # Effective width without the handle
+                    # Assuming the handle is on the left and occupies 20% of the width
+                    handle_width = int(w * 0.2)
+                    effective_width = w - handle_width
 
                     # Draw the effective area without handle in black
-                    cv2.rectangle(frame, (x + handle_width + handle_x_adjustment, y), (x + w, y + h), (0, 0, 0), 2)
-                    effective_width_cm = effective_width / pixels_per_cm_x
+                    cv2.rectangle(frame, (x + handle_width, y), (x + w, y + h), (0, 0, 0), 2)
+                    width_cm = effective_width / pixels_per_cm_x
                     height_cm = h / pixels_per_cm_y
-                    cv2.putText(frame, f'{effective_width_cm:.2f}cm x {height_cm:.2f}cm', (x + handle_width + handle_x_adjustment, y + h + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                    volume_cm3 = np.pi * (width_cm / 2) ** 2 * height_cm
+                    cv2.putText(frame, f'{width_cm:.2f}cm x {height_cm:.2f}cm, Vol: {volume_cm3:.2f}cm^3', (x + handle_width, y + h + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
-                    # Append to text file
-                    with open(output_txt_path, 'a') as f:
-                        f.write(f"{frame_count}, {x}, {y}, {w}, {h}, {w/pixels_per_cm_x:.2f}, {h/pixels_per_cm_y:.2f}, {effective_width_cm:.2f}\n")
+                    # Save dimensions for averaging
+                    dimensions.append((width_cm, height_cm, volume_cm3))
 
         out.write(frame)
-        frame_count += 1
 
+
+    # Release video writer and capture objects
     cap.release()
     out.release()
+
+    # Calculate average dimensions and volume
+    if dimensions:
+        avg_width = sum(d[0] for d in dimensions) / len(dimensions)
+        avg_height = sum(d[1] for d in dimensions) / len(dimensions)
+        avg_volume = sum(d[2] for d in dimensions) / len(dimensions)
+        with open(output_txt_path, 'w') as f:
+            f.write(f'Average Width: {avg_width:.2f} cm\n')
+            f.write(f'Average Height: {avg_height:.2f} cm\n')
+            f.write(f'Average Volume: {avg_volume:.2f} cm³\n')
 
 cv2.destroyAllWindows()
 print("Processing complete. Output videos and TXT files are saved in the 'outputs' folder.")
