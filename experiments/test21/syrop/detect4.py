@@ -35,7 +35,7 @@ with open(summary_csv_path, 'w', newline='') as csvfile:
         output_video_path = os.path.join(output_folder, os.path.splitext(video_file)[0] + '_processed.mp4')
         output_txt_path = os.path.join(output_folder, os.path.splitext(video_file)[0] + '_data.txt')
         
-        out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+        out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'HEVC'), fps, (frame_width, frame_height))
         total_area_mm2 = 0
 
         ret, previous_frame = cap.read()
